@@ -1,0 +1,161 @@
+.job-application-page {
+  min-height: 90vh;
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 30px;
+}
+
+
+/* Ensure html and body also stretch to full height */
+
+
+.job-application-form .form-title {
+  margin-top:0px;
+  text-align: center;
+ 
+  font-size: 1.8rem;
+  color: #8b8787;
+}
+
+
+.job-application-form {
+  max-height: 190vh; /* Keeps it within viewport */
+  border-color: #b00808;
+  margin: 30px auto;
+  padding: 1px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #fff;
+  width: 90vh;
+}
+
+.job-application-form form {
+  background-color: #f9fafb;
+  padding: 30px;
+  border-radius: 10px;
+  border-color: aquamarine;
+
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  row-gap: 20px;
+  column-gap: 30px;
+  align-items: center;
+  color: #333;
+
+}
+
+/* Right align labels */
+.job-application-form label {
+  font-weight: 600;
+  text-align: right;
+  padding-right: 20px;
+  user-select: none;
+  justify-self: end;
+}
+
+/* Style all inputs and textarea */
+.job-application-form input[type="text"],
+.job-application-form input[type="email"],
+.job-application-form input[type="file"],
+.job-application-form textarea {
+  width: 90%;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border: 1.8px solid #ccc;
+  border-radius: 8px;
+  transition: border-color 0.3s ease;
+  justify-self: start;
+}
+
+.job-application-form input[type="text"]:focus,
+.job-application-form input[type="email"]:focus,
+.job-application-form input[type="file"]:focus,
+.job-application-form textarea:focus {
+  border-color: #0066ff;
+  outline: none;
+  box-shadow: 0 0 8px rgba(0, 102, 255, 0.3);
+}
+
+/* Gender Label alignment */
+.job-application-form .gender {
+  justify-self: end;
+}
+
+/* Gender radio buttons layout */
+.job-application-form .gender-options {
+  display: flex;
+  gap: 25px;
+  justify-content: flex-start;
+  justify-self: start;
+}
+
+.job-application-form .gender-options label {
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Radio buttons styling */
+.job-application-form input[type="radio"] {
+  accent-color: #0066ff;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+/* File upload input */
+.job-application-form input[type="file"] {
+  padding: 5px 0;
+  border-radius: 6px;
+  border: 1.5px solid #ccc;
+  background-color: white;
+  max-width: 250px;
+}
+
+/* Submit button styling */
+.job-application-form input[type="submit"] {
+  grid-column: 2 / 3;
+  justify-self: start;
+  margin-top: 10px;
+  padding: 12px 28px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  background: linear-gradient(to right, rgb(36, 123, 123), rgb(211, 57, 156));
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 102, 255, 0.4);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.job-application-form input[type="submit"]:hover {
+  background: linear-gradient(to right, rgb(36, 90, 123), rgb(190, 47, 130));
+  box-shadow: 0 6px 14px rgba(0, 75, 181, 0.6);
+}
+
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  border: 1px solid #c3e6cb;
+}
+
+.error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+  border: 1px solid #f5c6cb;
+}
