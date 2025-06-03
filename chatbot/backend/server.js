@@ -19,11 +19,10 @@ mongoose.connect('mongodb+srv://mahaashri:Mahaa%40123@chatbot.iagvzxg.mongodb.ne
   .catch(err => console.log(err));
 
 // Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
-});
+
+const storage = multer.memoryStorage(); // Store file in memory
 const upload = multer({ storage });
+
 
 // --------------------
 // Intern Schema
@@ -31,14 +30,17 @@ const upload = multer({ storage });
 const InternSchema = new mongoose.Schema({
   name: String,
   email: String,
-  gender: String,
   qualification: String,
   skills: String,
   college: String,
   position: String,
-  resume: String
+  resume: {
+    data: Buffer,
+    contentType: String
+  }
 });
 const Intern = mongoose.model('intern_applications', InternSchema);
+
 
 // --------------------
 // Job Schema
@@ -46,7 +48,6 @@ const Intern = mongoose.model('intern_applications', InternSchema);
 const JobSchema = new mongoose.Schema({
   name: String,
   email: String,
-  gender: String,
   qualification: String,
   skills: String,
   college: String,
@@ -54,6 +55,25 @@ const JobSchema = new mongoose.Schema({
   resume: String
 });
 const Job = mongoose.model('job_applications', JobSchema);
+
+// --------------------
+// Client Schema
+// --------------------
+const ClientSchema = new mongoose.Schema({
+  firstName: String,
+  lastName: String,
+  email: String,
+  phone: String,
+  industry: String,
+  volume: Number,
+  projection: String,
+  crowdSourcing: String,
+  startDate: String,
+  sampleData: String
+});
+
+const Client = mongoose.model('client_submissions', ClientSchema);
+
 
 // --------------------
 // Routes
@@ -64,7 +84,10 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
   try {
     const intern = new Intern({
       ...req.body,
-      resume: req.file ? req.file.filename : null
+      resume: req.file ? {
+        data: req.file.buffer,
+        contentType: req.file.mimetype
+      } : null
     });
     await intern.save();
     res.status(200).send({ message: 'Intern application submitted successfully!' });
@@ -73,6 +96,20 @@ app.post('/apply', upload.single('resume'), async (req, res) => {
     res.status(500).send({ message: 'Server Error' });
   }
 });
+app.get('/resume/:id', async (req, res) => {
+  try {
+    const intern = await Intern.findById(req.params.id);
+    if (!intern || !intern.resume) {
+      return res.status(404).send('No resume found');
+    }
+    res.set('Content-Type', intern.resume.contentType);
+    res.send(intern.resume.data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server error');
+  }
+});
+
 
 // Job Application
 app.post('/job-apply', upload.single('resume'), async (req, res) => {
@@ -88,5 +125,18 @@ app.post('/job-apply', upload.single('resume'), async (req, res) => {
     res.status(500).send({ message: 'Server Error' });
   }
 });
+
+// Client Form Submission
+app.post('/client-submit', async (req, res) => {
+  try {
+    const client = new Client(req.body);
+    await client.save();
+    res.status(200).send({ message: 'Client form submitted successfully!' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Server Error' });
+  }
+});
+
 
 app.listen(port, () => console.log(`Server running on port ${port}`));

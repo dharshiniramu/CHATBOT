@@ -1,19 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './homepage.css';
+import TypingAnimation from './TypingAnimation';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHome, faPaperPlane, faRobot, faSearch, faGlobe, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { faLocationArrow } from '@fortawesome/free-solid-svg-icons'; // sleek arrow
 import { useNavigate } from 'react-router-dom';
 
+// Add this formatting function at the top of the file
+const formatBotResponse = (content) => {
+  // Split content into sentences and filter out empty ones
+  const sentences = content.split(/[.!?]/).filter(sentence => sentence.trim().length > 0);
+  
+  if (sentences.length > 1) {
+    return (
+      <div className="formatted-bot-message">
+        {sentences.map((sentence, index) => (
+          <div key={index} className="bot-message-point">
+            • {sentence.trim()}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <p>{content}</p>;
+};
+
 function Homepage(){
   const navigate = useNavigate();
   const chatboxContentRef = useRef(null);
 
-  const [chatOpen, setChatOpen] = useState(false);
-  const [selectedOption, setSelectedOption] = useState('');
-  const [servicesoption,setServicesOption] = useState(' ');
-  const [subservicesoption,setSubServicesOption] = useState(' ');
+  // Initialize state from localStorage if available
+  const [chatOpen, setChatOpen] = useState(() => {
+    const saved = localStorage.getItem('chatOpen');
+    return saved ? JSON.parse(saved) : false;
+  });
+  
+  const [selectedOption, setSelectedOption] = useState(() => {
+    const saved = localStorage.getItem('selectedOption');
+    return saved ? JSON.parse(saved) : '';
+  });
+  
+  const [servicesoption, setServicesOption] = useState(() => {
+    const saved = localStorage.getItem('servicesoption');
+    return saved ? JSON.parse(saved) : ' ';
+  });
+  
+  const [subservicesoption, setSubServicesOption] = useState(() => {
+    const saved = localStorage.getItem('subservicesoption');
+    return saved ? JSON.parse(saved) : ' ';
+  });
+  
+  const [currentMessages, setCurrentMessages] = useState(() => {
+    const saved = localStorage.getItem('currentMessages');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [navigationHistory, setNavigationHistory] = useState([]);
   const [chatHistory, setChatHistory] = useState([]); // Track chat history
 
@@ -25,23 +67,26 @@ function Homepage(){
   });
 
   const [inputMessage, setInputMessage] = useState('');
-  const [currentMessages, setCurrentMessages] = useState([]);
   const [messages, setMessages] = useState([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [serviceTyping, setServiceTyping] = useState(false);
+  const [subServiceTyping, setSubServiceTyping] = useState(false);  // Add new state for subservice typing
 
-  const handleChatOptionClick = (option) =>
-  {
+  const handleChatOptionClick = async (option) => {
     setSelectedOption(option);
-    // Add user's selection to messages
-    setCurrentMessages([...currentMessages, {
-      type: 'user',
-      content: ` ${option.charAt(0).toUpperCase() + option.slice(1)}`,
-      section: 'main'
-    }]);
     
-    setUserMessages(prev => ({
-      ...prev,
-      main: option === 'job' ? 'Job/Intern' : option.charAt(0).toUpperCase() + option.slice(1)
-    }));
+    if (option === "job") {
+      setServicesOption(' ');
+      setSubServicesOption(' ');
+    } else {
+      setCurrentMessages([...currentMessages, {
+        type: 'user',
+        content: option === 'about' ? 'About Us' :
+                 option === 'contact' ? 'Contact Info' :
+                 option === 'services' ? 'Our Services' : option,
+        section: 'main'
+      }]);
+    }
 
     if (option === "about") {
       navigate('/about');
@@ -58,36 +103,13 @@ function Homepage(){
 
   const handleServicesOption = (option) => {
     const capitalizedOption = option.charAt(0).toUpperCase() + option.slice(1);
-    // Add user's service selection to messages
-    setCurrentMessages([...currentMessages, {
-      type: 'user',
-      content: `${capitalizedOption}`,
-      section: 'services'
-    }]);
-    
-    setUserMessages(prev => ({
-      ...prev,
-      services: capitalizedOption,
-      subServices: ''
-    }));
     setServicesOption(option);
   };
 
   const handleSubServiceOption = (option) => {
     const capitalizedOption = option.charAt(0).toUpperCase() + option.slice(1);
-    // Add user's sub-service selection to messages
-    setCurrentMessages([...currentMessages, {
-      type: 'user',
-      content: `Selected: ${capitalizedOption}`,
-      section: servicesoption
-    }]);
-    
-    setUserMessages(prev => ({
-      ...prev,
-      subServices: capitalizedOption
-    }));
     setSubServicesOption(option);
-
+    
     // Add navigation for different sub-services
     switch(option) {
       // Data Labelling Services
@@ -140,22 +162,11 @@ function Homepage(){
   };
 
   const handleJobOption = (option) => {
-    // Add user's job selection to messages
-    setCurrentMessages([...currentMessages, {
-      type: 'user',
-      content: `Selected: ${option === "job" ? "Job Application" : "Intern Application"}`,
-      section: 'job'
-    }]);
-    
-    setUserMessages(prev => ({
-      ...prev,
-      job: option === "job" ? "Job Application" : "Intern Application"
-    }));
-
+    // Directly navigate to the appropriate form without adding messages
     if (option === "job") {
-      navigate('/jobapplication');  // Navigate to Job Application page
+      navigate('/jobapplication');
     } else if (option === "intern") {
-      navigate('/internapplication');  // Navigate to Intern Application page
+      navigate('/internapplication');
     }
   };
 
@@ -163,7 +174,7 @@ function Homepage(){
     // Add user's selection to messages
     setCurrentMessages([...currentMessages, {
       type: 'user',
-      content: `Selected: ${option.toUpperCase()}`,
+content: `Selected: ${option.toUpperCase()}`,
       section: 'digital_engineering'
     }]);
     
@@ -202,125 +213,141 @@ function Homepage(){
     scrollToBottom();
   }, [selectedOption, servicesoption, subservicesoption, userMessages]);
 
-  // Add message handler
+  // Modify handleSendMessage to include typing animation
   const handleSendMessage = async () => {
-  if (inputMessage.trim() !== '') {
-    // Determine current active section
-    let currentSection = 'main';
-    if (servicesoption === "data labelling") currentSection = 'data_labelling';
-    else if (servicesoption === "digital engineering") currentSection = 'digital_engineering';
-    else if (servicesoption === "aiml services") currentSection = 'aiml_services';
-    else if (servicesoption === "cloud services") currentSection = 'cloud_services';
-    else if (servicesoption === "structured engineering") currentSection = 'structured_engineering';
-    else if (selectedOption === "services") currentSection = 'services';
-    else if (selectedOption === "job") currentSection = 'job';
-
-    // Add user message
-    const newMessages = [
-      ...currentMessages,
-      {
+    if (inputMessage.trim() !== '') {
+      // Add user message immediately
+      const newUserMessage = {
         type: 'user',
         content: inputMessage,
-        section: currentSection
+        section: 'chat'
+      };
+      setCurrentMessages(prevMessages => [...prevMessages, newUserMessage]);
+      setInputMessage(''); // Clear input field
+
+      // Show typing animation
+      setIsTyping(true);
+
+      try {
+        const response = await fetch('http://localhost:5001/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            query: inputMessage,
+            context: {
+              selectedOption,
+              servicesoption,
+              subservicesoption
+            }
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+
+        const data = await response.json();
+
+        // Add a small delay to make the typing animation visible
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Add bot response
+        setCurrentMessages(prevMessages => [...prevMessages, {
+          type: 'bot',
+          content: data.response || "I'm sorry, I couldn't process that request.",
+          section: 'chat'
+        }]);
+      } catch (error) {
+        console.error("Error fetching response:", error);
+        // Add error message as bot response
+        setCurrentMessages(prevMessages => [...prevMessages, {
+          type: 'bot',
+          content: "I apologize, but I'm having trouble connecting to the server. Please try again later.",
+          section: 'chat'
+        }]);
+      } finally {
+        setIsTyping(false);
       }
-    ];
-    setCurrentMessages(newMessages);
-
-    try {
-      const response = await fetch('http://localhost:5001/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query: inputMessage }),
-      });
-
-      const data = await response.json();
-
-      // Add AI response
-      setCurrentMessages([
-        ...newMessages,
-        {
-          type: 'bot',
-          content: data.response,
-          section: currentSection
-        }
-      ]);
-    } catch (error) {
-      console.error("Error fetching AI response:", error);
-      setCurrentMessages([
-        ...newMessages,
-        {
-          type: 'bot',
-          content: "Sorry, something went wrong.",
-          section: currentSection
-        }
-      ]);
     }
+  };
 
-    setInputMessage('');
-  }
-};
-
-
-  // Handle enter key press
+  // Make sure we have the keyPress handler
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
       handleSendMessage();
     }
   };
 
-  const handleBack = () => {
-    // If we're in a sub-service section (like data labelling details), go back to services menu
-    if (servicesoption !== ' ') {
-      // Clear all messages related to the current section and the user's selection
-      setCurrentMessages(messages => 
-        messages.filter(msg => {
-          // Remove both the section messages and the user's selection message
-          const currentSection = 
-            servicesoption === "data labelling" ? "data_labelling" :
-            servicesoption === "digital engineering" ? "digital_engineering" :
-            servicesoption === "aiml services" ? "aiml_services" :
-            servicesoption === "cloud services" ? "cloud_services" :
-            servicesoption === "structured engineering" ? "structured_engineering" : "";
-          
-          // Keep messages that aren't from current section and aren't the selection message
-          return msg.section !== currentSection && msg.section !== "services";
-        })
-      );
+  // Add useEffect to scroll to bottom when messages change
+  useEffect(() => {
+    if (chatboxContentRef.current) {
+      chatboxContentRef.current.scrollTop = chatboxContentRef.current.scrollHeight;
+    }
+  }, [currentMessages]);
 
-      // Go back to services menu
+  // Add this section to display messages in the chatbox content
+  const renderMessages = () => {
+    return currentMessages.map((message, index) => (
+      <div key={index} className={message.type === 'user' ? 'user-message-wrapper' : 'bot-message-wrapper'}>
+        {message.type === 'bot' && <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />}
+        <div className={message.type === 'user' ? 'user-message' : ''}>
+          {message.content}
+        </div>
+      </div>
+    ));
+  };
+
+  const handleBack = () => {
+    // If there are chat messages, remove only the most recent message pair
+    if (currentMessages.some(msg => msg.section === 'chat')) {
+      setCurrentMessages(prevMessages => {
+        // Find the last chat message pair and remove them
+        const lastUserMessageIndex = [...prevMessages].reverse().findIndex(msg => msg.section === 'chat' && msg.type === 'user');
+        if (lastUserMessageIndex !== -1) {
+          // Remove the last user message and its corresponding bot response
+          return prevMessages.slice(0, prevMessages.length - 2);
+        }
+        return prevMessages;
+      });
+      return;
+    }
+
+    // Handle service navigation
+    if (servicesoption !== ' ') {
       setSelectedOption("services");
       setServicesOption(' ');
       setSubServicesOption(' ');
+      // Clear the messages related to service selection
+      setCurrentMessages(prevMessages => 
+        prevMessages.filter(msg => msg.content !== servicesoption)
+      );
       return;
     }
 
-    // If we're in the services menu, go back to main menu
     if (selectedOption === "services") {
-      // Clear all messages including the initial service selection
-      setCurrentMessages(messages => 
-        messages.filter(msg => msg.section !== "services" && msg.section !== "main")
-      );
       setSelectedOption('');
       setServicesOption(' ');
       setSubServicesOption(' ');
+      // Clear all service-related messages
+      setCurrentMessages(prevMessages => 
+        prevMessages.filter(msg => msg.content !== 'Our Services')
+      );
       return;
     }
 
-    // If we're in job section
     if (selectedOption === "job") {
-      // Clear all job-related messages including the selection
-      setCurrentMessages(messages => 
-        messages.filter(msg => msg.section !== "job" && msg.section !== "main")
-      );
       setSelectedOption('');
       setServicesOption(' ');
       setSubServicesOption(' ');
+      // Clear job-related messages
+      setCurrentMessages(prevMessages => 
+        prevMessages.filter(msg => msg.content !== 'Job/Intern')
+      );
       return;
     }
 
-    // For any other case, clear everything and go to main menu
     setSelectedOption('');
     setServicesOption(' ');
     setSubServicesOption(' ');
@@ -338,6 +365,58 @@ function Homepage(){
       }]);
     }
   }, [selectedOption, servicesoption, subservicesoption]);
+
+  // Add useEffect hooks to save state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('chatOpen', JSON.stringify(chatOpen));
+  }, [chatOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('selectedOption', JSON.stringify(selectedOption));
+  }, [selectedOption]);
+
+  useEffect(() => {
+    localStorage.setItem('servicesoption', JSON.stringify(servicesoption));
+  }, [servicesoption]);
+
+  useEffect(() => {
+    localStorage.setItem('subservicesoption', JSON.stringify(subservicesoption));
+  }, [subservicesoption]);
+
+  useEffect(() => {
+    localStorage.setItem('currentMessages', JSON.stringify(currentMessages));
+  }, [currentMessages]);
+
+  const resetChatStates = () => {
+    setSelectedOption('');
+    setServicesOption(' ');
+    setSubServicesOption(' ');
+    setCurrentMessages([]);
+    setMessages([]);
+    setInputMessage('');
+    setUserMessages({
+      main: '',
+      services: '',
+      subServices: '',
+      job: ''
+    });
+    // Clear localStorage
+    localStorage.removeItem('selectedOption');
+    localStorage.removeItem('servicesoption');
+    localStorage.removeItem('subservicesoption');
+    localStorage.removeItem('currentMessages');
+    localStorage.removeItem('chatOpen');
+  };
+
+  const handleChatClose = () => {
+    setChatOpen(false);
+    resetChatStates();
+  };
+
+  const handleChatOpen = () => {
+    setChatOpen(true);
+    // The welcome message will show automatically since we're resetting all states
+  };
 
   return(
     <div className="homepage-container">
@@ -378,7 +457,7 @@ function Homepage(){
 
       <div
         className="chatbot"
-        onClick={() => setChatOpen(!chatOpen)}
+        onClick={handleChatOpen}
         title="Chat with us"
         style={{ backgroundImage: "url('/bot_logo.png')" }}
       />
@@ -396,9 +475,10 @@ function Homepage(){
               )}
               <div className="chatbox-title">VISTA Assistant</div>
             </div>
-            <button className="close-button" onClick={() => setChatOpen(false)}>×</button>
+            <button className="close-button" onClick={handleChatClose}>×</button>
           </div>
           <div className="chatbox-content" ref={chatboxContentRef}>
+            {/* Always show welcome message and main menu */}
             <div className="bot-message-wrapper">
               <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
               <p>
@@ -410,48 +490,14 @@ function Homepage(){
 
             <div className="chat-buttons">
               <button className="chat-btn" onClick={() => handleChatOptionClick("about")}>About Us</button>
-              <button className="chat-btn" onClick={() => handleChatOptionClick("services")}>Our Services </button>
+              <button className="chat-btn" onClick={() => handleChatOptionClick("services")}>Our Services</button>
               <button className="chat-btn" onClick={() => handleChatOptionClick("contact")}>Contact Info</button>
               <button className="chat-btn" onClick={() => handleChatOptionClick("job")}>Job/Intern</button>
-              <button className="chat-btn" onClick={() => handleChatOptionClick("others")}>Others</button>
             </div>
 
-            {currentMessages
-              .filter(msg => msg.section === 'main')
-              .map((message, index) => (
-                <div key={index} className="user-message-wrapper">
-                  <p className="user-message">{message.content}</p>
-                </div>
-              ))
-            }
-
-            {selectedOption === "services" && (
-              <div className="bot-message">
-                <div className="bot-message-wrapper">
-                  <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
-                  <p>Vista Provide various services as follows</p>
-                </div>
-                <div className="chat-buttons">
-                  <button className="chat-btn" onClick={() => handleServicesOption("data labelling")}>Data Labelling</button>
-                  <button className="chat-btn" onClick={() => handleServicesOption("digital engineering")}>Digital Engineering</button>
-                  <button className="chat-btn" onClick={() => handleServicesOption("aiml services")}>AIML services</button>
-                  <button className="chat-btn" onClick={() => handleServicesOption("cloud services")}>Cloud services</button>
-                  <button className="chat-btn" onClick={() => handleServicesOption("structured engineering")}>Structured Engineering</button>
-                  <button className="chat-btn" onClick={() => handleChatOptionClick("others")}>Others</button>
-                </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'services')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-
+            {/* Conditional content based on selection */}
             {selectedOption === "job" && (
-              <div className="bot-message">
+              <div className="job-section">
                 <div className="bot-message-wrapper">
                   <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
                   <p>Please Select any one option</p>
@@ -460,144 +506,187 @@ function Homepage(){
                   <button className="chat-btn" onClick={() => handleJobOption("job")}>Job Application</button>
                   <button className="chat-btn" onClick={() => handleJobOption("intern")}>Intern Application</button>
                 </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'job')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
-                    </div>
-                  ))
-                }
               </div>
             )}
 
-            {servicesoption === "data labelling" && (
-              <div className="data-labelling-section">
+            {selectedOption === "services" && (
+              <div className="bot-message">
+                {/* Display "Our Services" user selection */}
+                <div className="user-message-wrapper">
+                  <div className="user-message">
+                    Our Services
+                  </div>
+                </div>
+
                 <div className="bot-message-wrapper">
                   <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
-                  <p>Vista provides precise data labelling services to enhance AI and machine learning accuracy.</p>
+                  <p>Vista Provide various services as follows</p>
                 </div>
+                
                 <div className="chat-buttons">
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("image annotation")}>Image Annotation</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("video annotation")}>Video Annotation</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("text annotation")}>Text Annotation</button>
+                  <button className="chat-btn" onClick={() => handleServicesOption("data labelling")}>Data Labelling</button>
+                  <button className="chat-btn" onClick={() => handleServicesOption("digital engineering")}>Digital Engineering</button>
+                  <button className="chat-btn" onClick={() => handleServicesOption("aiml services")}>AIML services</button>
+                  <button className="chat-btn" onClick={() => handleServicesOption("cloud services")}>Cloud services</button>
+                  <button className="chat-btn" onClick={() => handleServicesOption("structured engineering")}>Structured Engineering</button>
                 </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'data_labelling')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
+
+                {/* Display service selection and content */}
+                {servicesoption && servicesoption !== ' ' && (
+                  <>
+                    <div className="user-message-wrapper">
+                      <div className="user-message">
+                        {servicesoption.charAt(0).toUpperCase() + servicesoption.slice(1)}
+                      </div>
                     </div>
-                  ))
-                }
+
+                    {/* Data Labelling Section */}
+                    {servicesoption === "data labelling" && (
+                      <div className="service-content">
+                        <div className="bot-message-wrapper">
+                          <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                          <p>Vista provides precise data labelling services to enhance AI and machine learning accuracy.</p>
+                        </div>
+                        <div className="chat-buttons">
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("image annotation")}>Image Annotation</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("video annotation")}>Video Annotation</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("text annotation")}>Text Annotation</button>
+                        </div>
+
+                        {/* Show subservice selection */}
+                        {subservicesoption && subservicesoption !== ' ' && (
+                          <>
+                            <div className="user-message-wrapper">
+                              <div className="user-message">
+                                {subservicesoption.charAt(0).toUpperCase() + subservicesoption.slice(1)}
+                              </div>
+                            </div>
+
+                            {/* Show subservice content */}
+                            <div className="bot-message-wrapper">
+                              <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                              <p>
+                                {subservicesoption === "image annotation" && "Our image annotation service provides precise labeling for computer vision applications."}
+                                {subservicesoption === "video annotation" && "We offer frame-by-frame video annotation for dynamic object tracking and scene understanding."}
+                                {subservicesoption === "text annotation" && "Our text annotation service helps train NLP models with high-quality labeled data."}
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Digital Engineering Section */}
+                    {servicesoption === "digital engineering" && (
+                      <div className="service-content">
+                        <div className="bot-message-wrapper">
+                          <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                          <p>Vista provides digital engineering services that combine traditional engineering skills with cutting-edge digital technologies.</p>
+                        </div>
+                        <div className="chat-buttons">
+                          <button className="chat-btn" onClick={() => open_fea_cfd_page("cad/cae automation")}>CAD/CAE Automation</button>
+                          <button className="chat-btn" onClick={() => open_fea_cfd_page("fea/cfd simulation")}>FEA/CFD Simulation</button>
+                          <button className="chat-btn" onClick={() => open_fea_cfd_page("cyber security")}>Cyber Security</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* AIML Services */}
+                    {servicesoption === "aiml services" && (
+                      <div className="service-content">
+                        <div className="bot-message-wrapper">
+                          <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                          <p>Vista Projects offers AI and machine learning services that combine traditional engineering expertise with advanced digital technologies.</p>
+                        </div>
+                        <div className="chat-buttons">
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("data analytics")}>Data Analytics</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("nlp")}>NLP</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("big data analysis")}>Big Data Analysis</button>
+                        </div>
+
+                        {/* Show subservice selection */}
+                        {subservicesoption && subservicesoption !== ' ' && (
+                          <>
+                            <div className="user-message-wrapper">
+                              <div className="user-message">
+                                {subservicesoption.charAt(0).toUpperCase() + subservicesoption.slice(1)}
+                              </div>
+                            </div>
+
+                            <div className="bot-message-wrapper">
+                              <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                              <p>
+                                {subservicesoption === "data analytics" && "Our data analytics services help organizations extract valuable insights from their data."}
+                                {subservicesoption === "nlp" && "We provide Natural Language Processing solutions for text analysis and understanding."}
+                                {subservicesoption === "big data analysis" && "Our big data analysis services help handle and analyze large-scale datasets efficiently."}
+                              </p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Cloud Services */}
+                    {servicesoption === "cloud services" && (
+                      <div className="service-content">
+                        <div className="bot-message-wrapper">
+                          <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                          <p>Vista offers cloud services that enable secure, remote access to engineering data and applications.</p>
+                        </div>
+                        <div className="chat-buttons">
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("paas")}>PaaS</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("saas")}>SaaS</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("cloud storage")}>Cloud Storage</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Structured Engineering */}
+                    {servicesoption === "structured engineering" && (
+                      <div className="service-content">
+                        <div className="bot-message-wrapper">
+                          <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                          <p>Vista offers structural engineering services for industrial projects, focusing on safe, durable designs for structures like buildings, bridges, and platforms.</p>
+                        </div>
+                        <div className="chat-buttons">
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("structural substantiation")}>Structural Substantiation</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("fatigue analysis")}>Fatigue Analysis</button>
+                          <button className="chat-btn" onClick={() => handleSubServiceOption("damage analysis")}>Damage Analysis</button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 
-            {servicesoption === "digital engineering" && (
-              <div className="digital-engineering-section">
-                <div className="bot-message-wrapper">
-                  <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
-                  <p>
-                    Vista provides digital engineering services that combine traditional engineering skills with cutting-edge digital technologies.
-                  </p>
+            {/* Add this section to display chat messages */}
+            {currentMessages
+              .filter(msg => msg.section === 'chat')
+              .map((message, index) => (
+                <div key={index} className={message.type === 'user' ? 'user-message-wrapper' : 'bot-message-wrapper'}>
+                  {message.type === 'bot' && <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />}
+                  <div className={message.type === 'user' ? 'user-message' : 'bot-response'}>
+                    {message.type === 'bot' ? formatBotResponse(message.content) : message.content}
+                  </div>
                 </div>
-                <div className="chat-buttons">
-                  <button className="chat-btn" onClick={() => open_fea_cfd_page("cad/cae automation")}>CAD/CAE Automation</button>
-                  <button className="chat-btn" onClick={() => open_fea_cfd_page("fea/cfd simulation")}>FEA/CFD Simulation</button>
-                  <button className="chat-btn" onClick={() => open_fea_cfd_page("cyber security")}>Cyber Security</button>
-                </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'digital_engineering')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
-                    </div>
-                  ))
-                }
+              ))
+            }
+
+            {isTyping && (
+              <div className="bot-message-wrapper">
+                <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
+                <TypingAnimation />
               </div>
             )}
 
-            {servicesoption === "aiml services" && (
-              <div className="aiml-services-section">
-                <div className="bot-message-wrapper">
-                  <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
-                  <p>
-                    Vista Projects offers AI and machine learning services that combine traditional engineering expertise with advanced digital technologies.
-                  </p>
-                </div>
-                <div className="chat-buttons">
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("data analytics")}>Data Analytics</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("nlp")}>NLP</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("big data analysis")}>Big Data Analysis</button>
-                </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'aiml_services')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-
-            {servicesoption === "cloud services" && (
-              <div className="cloud-services-section">
-                <div className="bot-message-wrapper">
-                  <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
-                  <p>
-                    Vista offers cloud services that enable secure, remote access to engineering data and applications.
-                  </p>
-                </div>
-                <div className="chat-buttons">
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("paas")}>PaaS</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("saas")}>SaaS</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("cloud storage")}>Cloud Storage</button>
-                </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'cloud_services')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-
-            {servicesoption === "structured engineering" && (
-              <div className="structured-engineering-section">
-                <div className="bot-message-wrapper">
-                  <img src="/bot_logo2.png" alt="bot" className="bot-avatar" />
-                  <p>
-                    Vista offers structural engineering services for industrial projects, focusing on safe, durable designs for structures like buildings, bridges, and platforms.
-                  </p>
-                </div>
-                <div className="chat-buttons">
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("structural substantiation")}>Structural Substantiation</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("fatigue analysis")}>Fatigue Analysis</button>
-                  <button className="chat-btn" onClick={() => handleSubServiceOption("damage analysis")}>Damage Analysis</button>
-                </div>
-                {currentMessages
-                  .filter(msg => msg.section === 'structured_engineering')
-                  .map((message, index) => (
-                    <div key={index} className="user-message-wrapper">
-                      <p className="user-message">{message.content}</p>
-                    </div>
-                  ))
-                }
+            {/* Add this section to display user input messages */}
+            {currentMessages.length > 0 && !selectedOption && (
+              <div className="messages-container">
+                {renderMessages()}
               </div>
             )}
           </div>
-          <div className="chat-window">
-            {messages.map((msg, idx) => (
-              <div key={idx} className={`message ${msg.type}`}>
-                {msg.text}
-              </div>
-          ))}
-          </div>
-
-
           <div className="chat-input-wrapper">
             <FontAwesomeIcon icon={faHome} className="chat-icon-left" onClick={handlehomebutton} />
             <input 
@@ -606,14 +695,11 @@ function Homepage(){
               className="chat-input-with-icons"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-              autoComplete="new-password"
+              onKeyPress={handleKeyPress}
+              autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck="false"
-              name={`chat-input-${Math.random()}`}
-              data-form-type="other"
-              data-lpignore="true"
             />
             <FontAwesomeIcon 
               icon={faLocationArrow} 

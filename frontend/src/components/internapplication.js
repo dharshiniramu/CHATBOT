@@ -5,7 +5,6 @@ const InternApplication = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    gender: '',
     qualification: '',
     skills: '',
     college: '',
@@ -20,6 +19,16 @@ const InternApplication = () => {
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
+    
+    // Name validation to accept only alphabets
+    if (name === 'name') {
+      if (!/^[a-zA-Z\s]*$/.test(value)) {
+        setError('Name should only contain alphabets');
+        return;
+      }
+      setError('');
+    }
+    
     if (name === 'resume') {
       setFormData({ ...formData, resume: files[0] });
     } else {
@@ -48,7 +57,6 @@ const InternApplication = () => {
         setFormData({
           name: '',
           email: '',
-          gender: '',
           qualification: '',
           skills: '',
           college: '',
@@ -87,6 +95,8 @@ const InternApplication = () => {
             name="name"
             value={formData.name}
             onChange={handleChange}
+            pattern="[A-Za-z\s]+"
+            title="Please enter only alphabets"
             required
           />
 
@@ -99,41 +109,6 @@ const InternApplication = () => {
             onChange={handleChange}
             required
           />
-
-          <label className="gender" htmlFor="gender">Gender</label>
-          <div className="gender-options">
-            <label>
-              <input
-                type="radio"
-                name="gender"
-                value="Male"
-                checked={formData.gender === 'Male'}
-                onChange={handleChange}
-                required
-              />
-              Male
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="gender"
-                value="Female"
-                checked={formData.gender === 'Female'}
-                onChange={handleChange}
-              />
-              Female
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="gender"
-                value="Other"
-                checked={formData.gender === 'Other'}
-                onChange={handleChange}
-              />
-              Other
-            </label>
-          </div>
 
           <label htmlFor="qualification">Qualification</label>
           <input

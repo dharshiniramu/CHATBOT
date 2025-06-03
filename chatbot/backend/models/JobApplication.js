@@ -3,7 +3,13 @@ const mongoose = require('mongoose');
 const jobApplicationSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true
+    required: true,
+    validate: {
+      validator: function(v) {
+        return /^[a-zA-Z\s]+$/.test(v);
+      },
+      message: props => `${props.value} is not a valid name! Only alphabets are allowed.`
+    }
   },
   email: {
     type: String,
